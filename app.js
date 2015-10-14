@@ -3,6 +3,7 @@ var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
+var session = require('cookie-session');
 var bodyParser = require('body-parser');
 var passport = require('passport');
 var LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
@@ -23,12 +24,16 @@ app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(session({
+  name: "session",
+  keys: [process.env.KEY_1, process.env.KEY_2, process.env.KEY_3]
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 passport.use(new LinkedInStrategy({
   clientID: process.env.LINKEDIN_CLIENT_ID,
   clientSecret:  process.env.LINKEDIN_CLIENT_SECRET,
   callbackURL: "http://127.0.0.1:3000/auth/linkedin/callback",
-  scope: ['r_basicprofile'],
+  scope: ['r_emailaddress','r_basicprofile'],
 }, function(accessToken, refreshToken, profile, done) {
   // asynchronous verification, for effect...
   process.nextTick(function () {
@@ -36,7 +41,7 @@ passport.use(new LinkedInStrategy({
       // represent the logged-in user. In a typical application, you would want
       // to associate the LinkedIn account with a user record in your database,
       // and return that user instead.
-    return done(null, {id: profile.id, displayName: profile.displayName, token: accessToken});
+    done(null, {id: profile.id, displayName: profile.displayName, token: accessToken});
   });
 }));
 app.use(passport.initialize());
@@ -49,7 +54,10 @@ passport.serializeUser(function(user, done) {
 passport.deserializeUser(function(user, done) {
   done(null, user);
 });
-
+app.use(function (req, res, next) {
+  res.locals.user = req.user;
+  next();
+});
 
 app.use('/', routes);
 app.use('/users', users);
